@@ -1,0 +1,306 @@
+Metadata-Version: 2.4
+Name: vision-locomotion
+Version: 0.1.0
+Summary: Implementation of Legged Locomotion in Challenging Terrains using Egocentric Vision
+Home-page: https://github.com/yourusername/vision-locomotion
+Author: Vision Locomotion Team
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: torch>=1.10.0
+Requires-Dist: torchvision>=0.11.0
+Requires-Dist: numpy>=1.21.0
+Requires-Dist: scipy>=1.7.0
+Requires-Dist: opencv-python>=4.5.0
+Requires-Dist: pyyaml>=5.4.0
+Requires-Dist: tqdm>=4.62.0
+Requires-Dist: stable-baselines3>=1.6.0
+Requires-Dist: imitation>=0.3.0
+Requires-Dist: gym>=0.21.0
+Requires-Dist: wandb>=0.12.0
+Requires-Dist: tensorboard>=2.8.0
+Requires-Dist: matplotlib>=3.5.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: black>=22.0.0; extra == "dev"
+Requires-Dist: flake8>=4.0.0; extra == "dev"
+Requires-Dist: mypy>=0.950; extra == "dev"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Legged Locomotion in Challenging Terrains using Egocentric Vision
+
+This repository implements the method from the paper "Legged Locomotion in Challenging Terrains using Egocentric Vision" (Agarwal et al., CoRL 2022).
+
+## Overview
+
+The implementation follows a two-phase training approach:
+- **Phase 1**: Train a teacher policy using PPO with scandots (terrain height queries) as a proxy for depth
+- **Phase 2**: Distill the teacher policy to a student that uses real depth images via DAgger
+
+## Prerequisites
+
+### Hardware
+- **Windows 10/11** (or Linux)
+- NVIDIA GPU (RTX 4080 or better recommended, minimum RTX 3090) with 16GB+ VRAM
+- Intel Core i7 (7th Generation) or AMD Ryzen 5 CPU
+- 32GB+ RAM (recommended)
+- CPU for control (optional: separate machine for deployment)
+
+### Software Dependencies
+- Python 3.8+ (3.9 or 3.10 recommended)
+- PyTorch 1.10+ (with CUDA support)
+- **Isaac Sim 2024+** (NVIDIA Omniverse) - [Download](https://www.nvidia.com/en-us/omniverse/isaac-sim/)
+- stable-baselines3 for PPO
+- imitation library for DAgger
+- NumPy, SciPy, OpenCV
+
+**Note**: This code has been updated to work with Isaac Sim (Omniverse) on Windows. Legacy Isaac Gym Preview support is also included for backward compatibility.
+
+## Installation
+
+### For Windows with Isaac Sim
+
+1. **Install Isaac Sim**:
+   - Download Isaac Sim from [NVIDIA Omniverse](https://www.nvidia.com/en-us/omniverse/isaac-sim/)
+   - Extract to `C:\isaacsim` (or your preferred location)
+   - Run `post_install.bat` in the Isaac Sim directory
+   - Launch Isaac Sim at least once to complete setup
+
+2. **Set up Python environment**:
+   ```powershell
+   # Isaac Sim includes its own Python environment
+   # Activate Isaac Sim's Python environment
+   # Typically located at: C:\isaacsim\python.bat
+   
+   # Or use Isaac Sim's Python directly:
+   C:\isaacsim\python.bat -m pip install --upgrade pip
+   ```
+
+3. **Install Python dependencies** (in Isaac Sim's Python environment):
+   ```powershell
+   # Navigate to vision-locomotion directory
+   cd C:\Users\tindu\Desktop\isaaclab\vision-locomotion
+   
+   # Install dependencies
+   C:\isaacsim\python.bat -m pip install -r requirements.txt
+   
+   # Or install in development mode:
+   C:\isaacsim\python.bat -m pip install -e .
+   ```
+
+4. **Install Isaac Sim Python packages** (if not already included):
+   ```powershell
+   C:\isaacsim\python.bat -m pip install omni-isaac-core
+   C:\isaacsim\python.bat -m pip install omni-isaac-sensor
+   ```
+
+### For Linux with Isaac Sim
+
+1. **Install Isaac Sim**:
+   - Download and extract Isaac Sim
+   - Run the setup script
+   - Set environment variable (optional):
+   ```bash
+   export ISAAC_SIM_PATH=/path/to/isaacsim
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   cd vision-locomotion
+   # Use Isaac Sim's Python
+   /path/to/isaacsim/python.sh -m pip install -r requirements.txt
+   /path/to/isaacsim/python.sh -m pip install -e .
+   ```
+
+### Legacy: Isaac Gym Preview (Optional)
+
+If you need to use the legacy Isaac Gym Preview:
+
+1. Install Isaac Gym Preview and set environment variable:
+   ```bash
+   # Windows (PowerShell)
+   $env:ISAAC_GYM_PATH="C:\path\to\isaacgym"
+   
+   # Linux
+   export ISAAC_GYM_PATH=/path/to/isaacgym
+   ```
+
+2. Install legged_gym (if needed):
+   ```bash
+   git clone https://github.com/leggedrobotics/legged_gym.git
+   cd legged_gym
+   pip install -e .
+   ```
+
+## Project Structure
+
+```
+vision-locomotion/
+├── envs/              # Custom Isaac Gym environments
+│   └── a1_vision_env.py
+├── policies/          # Policy architectures (Monolithic, RMA)
+│   ├── monolithic.py
+│   └── rma.py
+├── trainers/          # Training scripts (PPO, DAgger)
+│   ├── ppo_trainer.py
+│   └── dagger_trainer.py
+├── utils/             # Utilities (rewards, randomization, etc.)
+│   ├── rewards.py
+│   ├── randomization.py
+│   ├── terrain.py
+│   └── curriculum.py
+├── configs/           # Configuration files (YAML)
+│   ├── phase1_monolithic.yaml
+│   ├── phase1_rma.yaml
+│   ├── phase2_monolithic.yaml
+│   └── phase2_rma.yaml
+├── scripts/           # Helper scripts
+│   ├── evaluate.py
+│   └── export_onnx.py
+├── train_phase1.py    # Phase 1 training entry point
+└── train_phase2.py    # Phase 2 training entry point
+```
+
+## Usage
+
+### Phase 1: Reinforcement Learning with Scandots
+
+Train the teacher policy:
+```bash
+python train_phase1.py --config configs/phase1_monolithic.yaml
+```
+
+Or with RMA architecture:
+```bash
+python train_phase1.py --config configs/phase1_rma.yaml
+```
+
+### Phase 2: Distillation with Depth
+
+Distill the Phase 1 policy to use depth:
+```bash
+python train_phase2.py \
+    --config configs/phase2_monolithic.yaml \
+    --phase1_checkpoint path/to/phase1/model.pth
+```
+
+### Evaluation
+
+Evaluate a trained policy:
+```bash
+python scripts/evaluate.py \
+    --checkpoint path/to/checkpoint.pth \
+    --phase 2 \
+    --num_episodes 10
+```
+
+### Export for Deployment
+
+Export policy to ONNX format:
+```bash
+python scripts/export_onnx.py \
+    --checkpoint path/to/checkpoint.pth \
+    --output model.onnx \
+    --phase 2
+```
+
+## Configuration
+
+Edit YAML files in `configs/` to adjust:
+- Network architectures (hidden dimensions, layers, etc.)
+- Training hyperparameters (learning rate, batch size, etc.)
+- Domain randomization ranges (mass, friction, etc.)
+- Reward scales
+- Terrain parameters
+
+## Key Features
+
+- **Monolithic Architecture**: Simple GRU-based policy that processes vision directly
+- **RMA Architecture**: Modular architecture with separate terrain and extrinsics estimation
+- **Curriculum Learning**: Automatic terrain difficulty progression based on performance
+- **Domain Randomization**: Comprehensive randomization for robust sim-to-real transfer
+- **Theoretical Guarantees**: Performance bounds from paper (Theorem 2.1)
+
+## Architecture Details
+
+### Phase 1 (Scandots)
+- Uses terrain height queries (scandots) as a cheap proxy for depth
+- Enables high-throughput training (~200k steps/sec with 4096 parallel envs)
+- Trains robust locomotion policies without depth rendering overhead
+
+### Phase 2 (Depth)
+- Distills Phase 1 policy to use real depth images
+- Uses DAgger algorithm for sim-to-real transfer
+- Processes depth through ConvNet + GRU to estimate terrain geometry
+
+## Training Tips
+
+1. **Phase 1**: Start with fewer parallel environments to debug, then scale up
+2. **Curriculum**: Monitor terrain success rates to ensure proper progression
+3. **Domain Randomization**: Gradually increase randomization ranges during training
+4. **Phase 2**: Ensure Phase 1 policy is well-trained before starting distillation
+
+## Troubleshooting
+
+### Windows-Specific Issues
+
+- **Path Issues**: The code now uses `pathlib.Path` for Windows-compatible path handling. If you encounter path errors, ensure all paths use forward slashes or `Path` objects.
+- **Isaac Sim Not Found**: Make sure Isaac Sim is installed and you're using Isaac Sim's Python environment. Check that `omni.isaac.core` can be imported.
+- **CUDA Issues**: Ensure you have the correct CUDA version (Isaac Sim 2024+ requires CUDA 12.x). Update your GPU drivers if needed.
+
+### General Issues
+
+- **Isaac Sim/Isaac Gym Issues**: 
+  - For Isaac Sim: Ensure Isaac Sim is properly installed and you're using its Python environment
+  - For legacy Isaac Gym Preview: Ensure `ISAAC_GYM_PATH` is set correctly
+- **Memory Issues**: Reduce `num_envs` in config if running out of GPU memory
+- **Training Instability**: Check reward scales and reduce learning rate if needed
+- **Import Errors**: Make sure you're running scripts with Isaac Sim's Python interpreter, not your system Python
+- **Camera/Depth Issues**: If depth images aren't working, check that `omni.isaac.sensor` is properly installed
+
+### Running Scripts
+
+**Important**: Always use Isaac Sim's Python interpreter to run training scripts:
+
+```powershell
+# Windows
+C:\isaacsim\python.bat train_phase1.py --config configs/phase1_monolithic.yaml
+
+# Or if Isaac Sim Python is in PATH:
+python train_phase1.py --config configs/phase1_monolithic.yaml
+```
+
+## Citation
+
+If you use this code, please cite:
+```bibtex
+@article{agarwal2022legged,
+  title={Legged Locomotion in Challenging Terrains using Egocentric Vision},
+  author={Agarwal, Ananye and Kumar, Ashish and Malik, Jitendra and Pathak, Deepak},
+  journal={CoRL},
+  year={2022}
+}
+```
+
+## License
+
+This implementation is provided for research purposes. Please refer to the original paper and legged_gym repository for licensing information.
+
+## Acknowledgments
+
+This implementation is based on the paper "Legged Locomotion in Challenging Terrains using Egocentric Vision" and uses the legged_gym framework from ETH Zurich's legged robotics lab.
