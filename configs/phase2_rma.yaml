@@ -1,0 +1,87 @@
+# Phase 2 Training Configuration - RMA Architecture
+
+# Environment
+env:
+  num_envs: 256
+  num_observations: 75  # Same as Phase 1 (latents are estimated)
+  num_actions: 12
+  depth_resolution: [58, 87]
+  depth_latency: 40.0
+  depth_latency_jitter: 20.0
+  episode_length: 1000
+  terrain:
+    num_rows: 20
+    num_cols: 10
+    terrain_size: 8.0
+    fractal_height_range: [0.02, 0.04]
+    types: ["flat", "stairs", "curbs", "gaps", "stepping_stones"]
+  
+# Policy Architecture
+policy:
+  architecture: "rma"
+  depth_convnet:
+    channels: [1, 16, 32]
+    kernel_sizes: [3, 3]
+    strides: [2, 2]
+    output_dim: 128
+  vision_gru:
+    input_dim: 179  # proprio + cmd + depth latent
+    hidden_dim: 128
+    num_layers: 1
+    output_dim: 16  # gamma_t estimate
+  proprio_gru:
+    input_dim: 51  # proprio + cmd
+    hidden_dim: 64
+    num_layers: 1
+    output_dim: 8  # z_t estimate
+  base_mlp:
+    input_dim: 75
+    hidden_dims: [256, 128]
+    activation: "tanh"
+    frozen: true  # Freeze from Phase 1
+  
+# Training
+training:
+  algorithm: "dagger"
+  total_timesteps: 6000000
+  learning_rate: 1e-4
+  batch_size: 32
+  n_epochs: 5
+  bptt_length: 24
+  bc_initial_samples: 1000000
+  dagger_iterations: 100
+  checkpoint_freq: 100000
+  loss_type: "latent"  # MSE on latents vs actions
+  
+# Domain Randomization (same as Phase 1)
+domain_randomization:
+  mass_range: [-2.0, 6.0]
+  com_shift_range: [-0.15, 0.15]
+  friction_range: [0.3, 1.25]
+  motor_strength_range: [0.9, 1.1]
+  pd_stiffness_range: [35, 45]
+  pd_damping_range: [0.4, 0.6]
+  push_interval: 15.0
+  push_velocity: 0.3
+  
+# Observation Noise (same as Phase 1)
+observation_noise:
+  joint_angles: {scale: 1.0, bias: 0.0, sigma: 0.01}
+  joint_velocities: {scale: 0.05, bias: 0.0, sigma: 0.05}
+  angular_velocity: {scale: 0.25, bias: 0.0, sigma: 0.05}
+  orientation: {scale: 1.0, bias: 0.0, sigma: 0.02}
+  
+# Commands (same as Phase 1)
+commands:
+  base_velocity: 0.35
+  heading_range: [-10, 10]
+  curve_velocity_range: [0.2, 0.75]
+  curve_heading_range: [-60, 60]
+  turn_heading_range: [-180, 180]
+  
+# Logging
+logging:
+  use_wandb: true
+  project_name: "vision-locomotion-phase2"
+  log_freq: 1000
+  save_dir: "./logs"
