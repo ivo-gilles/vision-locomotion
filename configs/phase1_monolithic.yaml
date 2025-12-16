@@ -3,7 +3,7 @@
 # Environment
 env:
   num_envs: 4096
-  num_observations: 67  # 48 proprio + 16 scandots latent + 3 cmd
+  num_observations: 64  # 45 proprio + 16 scandots latent + 3 cmd (actual: 12+12+3+3+3+12 proprio + 16 vision + 3 cmd)
   num_actions: 12
   num_scandots: 16
   episode_length: 1000  # steps at 50Hz
@@ -21,7 +21,7 @@ policy:
     hidden_dims: [64, 32]
     output_dim: 16
   gru:
-    input_dim: 67
+    input_dim: 64  # 45 proprio + 16 vision + 3 commands (matches actual environment output)
     hidden_dim: 256
     num_layers: 1
   action_mlp:

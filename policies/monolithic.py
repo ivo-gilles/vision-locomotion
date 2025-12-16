@@ -150,9 +150,15 @@ class MonolithicPolicy(nn.Module):
         
         # GRU configuration
         gru_config = config.get('gru', {})
-        proprio_dim = 48  # 12 joints * 2 (angles + velocities) + 3 base + 2 orientation + 12 prev actions + 3 cmd
-        cmd_dim = 3
-        gru_input_dim = proprio_dim + vision_dim + cmd_dim
+        # Use input_dim from config if specified, otherwise compute
+        if 'input_dim' in gru_config:
+            gru_input_dim = gru_config['input_dim']
+        else:
+            # Compute from components
+            # Proprioception: 12 (joint pos) + 12 (joint vel) + 3 (base lin vel) + 3 (base ang vel) + 3 (projected gravity) + 12 (prev actions) = 45
+            proprio_dim = 45
+            cmd_dim = 3
+            gru_input_dim = proprio_dim + vision_dim + cmd_dim
         
         self.gru = nn.GRU(
             input_size=gru_input_dim,
@@ -160,6 +166,9 @@ class MonolithicPolicy(nn.Module):
             num_layers=gru_config.get('num_layers', 1),
             batch_first=False  # Isaac Gym uses (seq_len, batch, features)
         )
+        
+        # Store expected dimension for validation
+        self.expected_gru_input_dim = gru_input_dim
         
         # Action MLP
         action_config = config.get('action_mlp', {})
@@ -231,8 +240,33 @@ class MonolithicPolicy(nn.Module):
             depth = observations['depth']
             vision_features = self.depth_processor(depth)
         
+        # Debug: Check dimensions (can be removed after fixing)
+        # print(f"Debug - proprio: {proprio.shape}, vision: {vision_features.shape}, commands: {commands.shape}")
+        
         # Concatenate inputs
         gru_input = torch.cat([proprio, vision_features, commands], dim=-1)
+        
+        # Validate and fix dimension mismatch if needed
+        expected_dim = self.expected_gru_input_dim
+        actual_dim = gru_input.shape[-1]
+        
+        if actual_dim != expected_dim:
+            # Try to fix common mismatches
+            if actual_dim == expected_dim - 3:
+                # Missing commands - pad with zeros
+                missing = expected_dim - actual_dim
+                gru_input = torch.cat([gru_input, torch.zeros(*gru_input.shape[:-1], missing, device=gru_input.device)], dim=-1)
+            elif actual_dim == expected_dim + 3:
+                # Extra dimensions - truncate
+                gru_input = gru_input[..., :expected_dim]
+            else:
+                # Cannot auto-fix, raise error with details
+                raise RuntimeError(
+                    f"GRU input dimension mismatch: expected {expected_dim}, got {actual_dim}. "
+                    f"Breakdown - proprio: {proprio.shape[-1]}, vision: {vision_features.shape[-1]}, "
+                    f"commands: {commands.shape[-1]}, total: {actual_dim}. "
+                    f"Please check environment observation dimensions match policy configuration."
+                )
         
         # Reshape for GRU: (batch, features) -> (1, batch, features)
         if gru_input.dim() == 2:
